@@ -372,7 +372,8 @@ def scan_videos(root):
 @click.option("--tag-ids", help="comma-separated custom tag IDs to apply", required=False, default=None)
 @click.option("--game-id", type=int, help="game ID to apply", required=False, default=None)
 @click.option("--title", help="initial title for the video (defaults to filename stem)", required=False, default=None)
-def scan_video(ctx, path, tag_ids, game_id, title):
+@click.option("--uploaded-by", type=int, required=False, default=None)
+def scan_video(ctx, path, tag_ids, game_id, title, uploaded_by):
     with create_app().app_context():
         paths = current_app.config['PATHS']
         domain = current_app.config['DOMAIN']
@@ -432,7 +433,14 @@ def scan_video(ctx, path, tag_ids, game_id, title):
                 created_at = datetime.fromtimestamp(os.path.getctime(f"{videos_path}/{path}"))
                 updated_at = datetime.fromtimestamp(os.path.getmtime(f"{videos_path}/{path}"))
                 recorded_at = util.extract_date_from_file(video_file)
-                v = Video(video_id=video_id, extension=video_file.suffix, path=path, available=True, created_at=created_at, updated_at=updated_at, recorded_at=recorded_at)
+                v = Video(
+                    video_id=video_id, 
+                    extension=video_file.suffix, 
+                    path=path, 
+                    available=True, 
+                    created_at=created_at, 
+                    updated_at=updated_at, 
+                    recorded_at=recorded_at)
                 logger.info(f"Adding new Video {video_id} at {str(path)} (created {created_at.isoformat()}, updated {updated_at.isoformat()}, recorded {recorded_at.isoformat() if recorded_at else 'N/A'})")
                 db.session.add(v)
                 fd = os.open(str(video_links.absolute()), os.O_DIRECTORY)
@@ -448,7 +456,11 @@ def scan_video(ctx, path, tag_ids, game_id, title):
                         os.symlink(src, dst, dir_fd=fd)
                     except FileExistsError:
                         logger.info(f"{dst} exists already")
-                info = VideoInfo(video_id=v.video_id, title=title or Path(v.path).stem, private=video_config["private"])
+                info = VideoInfo(
+                    video_id=v.video_id, 
+                    title=title or Path(v.path).stem, 
+                    private=video_config["private"],
+                    uploaded_by=uploaded_by,)
                 db.session.add(info)
                 db.session.commit()
 

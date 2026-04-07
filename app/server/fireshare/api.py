@@ -1993,7 +1993,7 @@ def _parse_upload_metadata():
     return tag_ids, game_id, title
 
 
-def _launch_scan_video(save_path, config, tag_ids=None, game_id=None, title=None):
+def _launch_scan_video(save_path, config, tag_ids=None, game_id=None, title=None, uploaded_by=None):
     """
     Launch scan-video and publish an initial transcoding-running status when
     auto-transcode is enabled so SSE subscribers can reflect upload-triggered work.
@@ -2010,6 +2010,9 @@ def _launch_scan_video(save_path, config, tag_ids=None, game_id=None, title=None
         cmd.append(f"--game-id={game_id}")
     if title:
         cmd.append(f"--title={title}")
+    if uploaded_by is not None:
+        cmd.append(f"--uploaded-by={uploaded_by}")
+        
     scan_proc = Popen(cmd, shell=False, start_new_session=True)
 
     def reap_and_cleanup():
@@ -2035,6 +2038,7 @@ def _launch_scan_video(save_path, config, tag_ids=None, game_id=None, title=None
     return scan_proc
 
 @api.route('/api/upload/public', methods=['POST'])
+@login_required
 def public_upload_video():
     paths = current_app.config['PATHS']
     with open(paths['data'] / 'config.json', 'r') as configfile:
@@ -2075,10 +2079,11 @@ def public_upload_video():
         uid = ''.join(random.choice(string.ascii_lowercase + string.digits) for _ in range(6))
         save_path = os.path.join(paths['video'], upload_folder, f"{name_no_type}-{uid}.{filetype}")
     file.save(save_path)
-    _launch_scan_video(save_path, config, *_parse_upload_metadata())
+    _launch_scan_video(save_path, config, *_parse_upload_metadata(),uploaded_by=current_user.id)
     return Response(status=201)
 
 @api.route('/api/uploadChunked/public', methods=['POST'])
+@login_required
 def public_upload_videoChunked():
     paths = current_app.config['PATHS']
     with open(paths['data'] / 'config.json', 'r') as configfile:
@@ -2139,7 +2144,7 @@ def public_upload_videoChunked():
         save_path = os.path.join(paths['video'], upload_folder, f"{name_no_type}-{uid}.{filetype}")
     
     os.rename(tempPath, save_path)
-    _launch_scan_video(save_path, config, *_parse_upload_metadata())
+    _launch_scan_video(save_path, config, *_parse_upload_metadata(), uploaded_by=current_user.id)
     return Response(status=201)
 
 @api.route('/api/upload-folders', methods=['GET'])
@@ -2227,7 +2232,7 @@ def upload_video():
         uid = ''.join(random.choice(string.ascii_lowercase + string.digits) for _ in range(6))
         save_path = os.path.join(paths['video'], upload_folder, f"{name_no_type}-{uid}.{filetype}")
     file.save(save_path)
-    _launch_scan_video(save_path, config, *_parse_upload_metadata())
+    _launch_scan_video(save_path, config, *_parse_upload_metadata(), uploaded_by=current_user.id)
     return Response(status=201)
 
 @api.route('/api/uploadChunked', methods=['POST'])
@@ -2326,7 +2331,7 @@ def upload_videoChunked():
             os.remove(save_path)
         return Response(status=500, response="Error reassembling file")
 
-    _launch_scan_video(save_path, config, *_parse_upload_metadata())
+    _launch_scan_video(save_path, config, *_parse_upload_metadata(), uploaded_by=current_user.id)
     return Response(status=201)
 
 def _stream_video_file(video_path):

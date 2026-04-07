@@ -4,11 +4,13 @@ from . import db
 
 class User(UserMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    username = db.Column(db.String(100), unique=True)
-    password = db.Column(db.String(100))
+    username = db.Column(db.String(100), unique=True, nullable=False)
+    password = db.Column(db.String(100), nullable=True)
     admin = db.Column(db.Boolean, default=True)
     ldap = db.Column(db.Boolean, default=False)
     last_seen_version = db.Column(db.String(32), nullable=True)
+
+    uploaded_video_infos = db.relationship("VideoInfo", back_populates="uploader", lazy="dynamic")
 
 class Video(db.Model):
     __tablename__ = "video"
@@ -58,6 +60,9 @@ class VideoInfo(db.Model):
     end_time    = db.Column(db.Float, nullable=True)
     has_crop    = db.Column(db.Boolean, default=False)
 
+    uploaded_by = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=True)
+    uploader    = db.relationship("User", back_populates="uploaded_video_infos")
+
     video       = db.relationship("Video", back_populates="info", uselist=False, lazy="joined")
 
     @property
@@ -103,6 +108,11 @@ class VideoInfo(db.Model):
             "start_time": self.start_time,
             "end_time": self.end_time,
             "has_crop": self.has_crop or False,
+            "uploaded_by": self.uploaded_by,
+            "uploader": {
+                "id": self.uploader.id,
+                "username": self.uploader.username,
+            } if self.uploader else None,
         }
 
     def __repr__(self):

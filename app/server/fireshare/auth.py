@@ -105,6 +105,9 @@ def login():
 @auth.route('/api/signup', methods=['POST'])
 @login_required
 def signup():
+    if not current_user.admin:
+        return Response(response="Unauthorized", status=403)
+
     username = request.json['username']
     password = request.json['password']
 
@@ -113,7 +116,7 @@ def signup():
     if user:
         return Response(response="User already exists.", status=400)
 
-    new_user = User(username=username, password=generate_password_hash(password, method='pbkdf2:sha256'))
+    new_user = User(username=username, password=generate_password_hash(password, method='pbkdf2:sha256'), admin=False)
     db.session.add(new_user)
     db.session.commit()
 
