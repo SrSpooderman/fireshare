@@ -24,6 +24,8 @@ import {
   TableContainer,
   TableHead,
   TableRow,
+  useMediaQuery,
+  useTheme,
 } from '@mui/material'
 import DeleteIcon from '@mui/icons-material/Delete'
 import DriveFileMoveIcon from '@mui/icons-material/DriveFileMove'
@@ -43,7 +45,8 @@ import TuneIcon from '@mui/icons-material/Tune'
 import DeleteSweepIcon from '@mui/icons-material/DeleteSweep'
 import Select from 'react-select'
 import selectFolderTheme from '../../common/reactSelectFolderTheme'
-import { dialogPaperSx, labelSx } from '../../common/modalStyles'
+import OutlinedIconButton from '../misc/OutlinedIconButton'
+import { dialogPaperSx, dialogTitleSx, inputSx, labelSx, rowBoxSx } from '../../common/modalStyles'
 import Api from '../../services/Api'
 
 function formatSize(bytes) {
@@ -171,7 +174,240 @@ function applyRenameOperation(title, op, find, replace, prefix, suffix) {
   return result
 }
 
-export default function BulkFileManager({ setAlert }) {
+const VideoFileRow = React.memo(function VideoFileRow({ file, isSelected, onToggle, hiddenColumns }) {
+  const displayName = file.title || file.filename
+  const hasTranscodes = file.has_480p || file.has_720p || file.has_1080p
+  return (
+    <TableRow
+      hover
+      selected={isSelected}
+      onClick={() => onToggle(file.video_id)}
+      sx={{
+        cursor: 'pointer',
+        bgcolor: isSelected ? '#3399FF14' : 'transparent',
+        '&:hover': { bgcolor: isSelected ? '#3399FF1E' : '#FFFFFF08' },
+        '&.Mui-selected': { bgcolor: '#3399FF14' },
+        '&.Mui-selected:hover': { bgcolor: '#3399FF1E' },
+      }}
+    >
+      {/* Checkbox */}
+      <TableCell
+        padding="checkbox"
+        sx={{ borderBottom: '1px solid #FFFFFF0D' }}
+        onClick={(e) => {
+          e.stopPropagation()
+          onToggle(file.video_id)
+        }}
+      >
+        <Checkbox
+          size="small"
+          checked={isSelected}
+          onChange={() => {}}
+          sx={{ color: '#FFFFFF44', '&.Mui-checked': { color: '#3399FF' } }}
+        />
+      </TableCell>
+
+      {/* Name */}
+      <TableCell sx={{ ...bodyCellSx, maxWidth: 300, overflow: 'hidden' }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, overflow: 'hidden' }}>
+          <Tooltip title={displayName} placement="top" enterDelay={600}>
+            <Typography
+              sx={{
+                fontSize: 13,
+                color: '#FFFFFFCC',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+                flex: 1,
+              }}
+            >
+              {displayName}
+            </Typography>
+          </Tooltip>
+          <Tooltip title="Open in new tab">
+            <IconButton
+              size="small"
+              onClick={(e) => {
+                e.stopPropagation()
+                window.open(`/w/${file.video_id}`, '_blank')
+              }}
+              sx={{ color: '#FFFFFF33', p: 0.25, flexShrink: 0, '&:hover': { color: '#FFFFFF99' } }}
+            >
+              <OpenInNewIcon sx={{ fontSize: 13 }} />
+            </IconButton>
+          </Tooltip>
+        </Box>
+      </TableCell>
+
+      {/* Size */}
+      <TableCell sx={{ ...bodyCellSx }}>
+        <Tooltip
+          arrow
+          placement="top"
+          title={
+            file.derived_size > 0 ? (
+              <Box>
+                <Typography sx={{ fontSize: 12 }}>Derived: {formatSize(file.derived_size)}</Typography>
+                <Typography sx={{ fontSize: 12 }}>
+                  Total: {formatSize((file.size || 0) + (file.derived_size || 0))}
+                </Typography>
+              </Box>
+            ) : (
+              ''
+            )
+          }
+        >
+          <Typography sx={{ fontSize: 12, color: '#FFFFFF77' }}>{formatSize(file.size)}</Typography>
+        </Tooltip>
+      </TableCell>
+
+      {/* Total Size */}
+      {!hiddenColumns.has('Total Size') && (
+        <TableCell sx={{ ...bodyCellSx }}>
+          <Typography sx={{ fontSize: 12, color: '#FFFFFF77' }}>
+            {formatSize((file.size || 0) + (file.derived_size || 0))}
+          </Typography>
+        </TableCell>
+      )}
+
+      {/* Duration */}
+      {!hiddenColumns.has('Duration') && (
+        <TableCell sx={{ ...bodyCellSx }}>
+          <Typography sx={{ fontSize: 12, color: '#FFFFFF77' }}>{formatDuration(file.duration)}</Typography>
+        </TableCell>
+      )}
+
+      {/* Resolution */}
+      {!hiddenColumns.has('Resolution') && (
+        <TableCell sx={{ ...bodyCellSx }}>
+          <Box sx={{ display: 'flex', alignItems: 'center' }}>
+            <Chip
+              label={formatResolution(file.width, file.height)}
+              size="small"
+              sx={{
+                height: 17,
+                fontSize: 10,
+                bgcolor: '#FFFFFF12',
+                color: '#FFFFFF66',
+                '& .MuiChip-label': { px: 0.75 },
+              }}
+            />
+          </Box>
+        </TableCell>
+      )}
+
+      {/* Transcodes */}
+      {!hiddenColumns.has('Transcodes') && (
+        <TableCell sx={{ ...bodyCellSx }}>
+          {hasTranscodes ? (
+            <Box sx={{ display: 'flex', gap: 0.4, flexWrap: 'wrap' }}>
+              {file.has_1080p && (
+                <Chip
+                  label="1080p"
+                  size="small"
+                  sx={{
+                    height: 17,
+                    fontSize: 10,
+                    bgcolor: '#FFFFFF12',
+                    color: '#FFFFFF66',
+                    '& .MuiChip-label': { px: 0.75 },
+                  }}
+                />
+              )}
+              {file.has_720p && (
+                <Chip
+                  label="720p"
+                  size="small"
+                  sx={{
+                    height: 17,
+                    fontSize: 10,
+                    bgcolor: '#FFFFFF12',
+                    color: '#FFFFFF66',
+                    '& .MuiChip-label': { px: 0.75 },
+                  }}
+                />
+              )}
+              {file.has_480p && (
+                <Chip
+                  label="480p"
+                  size="small"
+                  sx={{
+                    height: 17,
+                    fontSize: 10,
+                    bgcolor: '#FFFFFF12',
+                    color: '#FFFFFF66',
+                    '& .MuiChip-label': { px: 0.75 },
+                  }}
+                />
+              )}
+            </Box>
+          ) : (
+            <Typography sx={{ fontSize: 11, color: '#FFFFFF33' }}>—</Typography>
+          )}
+        </TableCell>
+      )}
+
+      {/* Cropped */}
+      {!hiddenColumns.has('Cropped') && (
+        <TableCell sx={{ ...bodyCellSx }}>
+          {file.has_crop ? (
+            <Box sx={{ display: 'flex', alignItems: 'center' }}>
+              <Chip
+                label="Cropped"
+                size="small"
+                sx={{
+                  height: 17,
+                  fontSize: 10,
+                  bgcolor: '#FF990018',
+                  color: '#FF9900BB',
+                  border: '1px solid #FF990033',
+                  '& .MuiChip-label': { px: 0.75 },
+                }}
+              />
+            </Box>
+          ) : (
+            <Typography sx={{ fontSize: 11, color: '#FFFFFF33' }}>—</Typography>
+          )}
+        </TableCell>
+      )}
+
+      {/* Privacy */}
+      {!hiddenColumns.has('Privacy') && (
+        <TableCell sx={{ ...bodyCellSx }}>
+          <Box sx={{ display: 'flex', alignItems: 'center' }}>
+            <Chip
+              label={file.private ? 'Private' : 'Public'}
+              size="small"
+              sx={{
+                height: 17,
+                fontSize: 10,
+                bgcolor: file.private ? '#FFFFFF12' : '#1DB95418',
+                color: file.private ? '#FFFFFF66' : '#1DB954',
+                border: '1px solid',
+                borderColor: file.private ? '#FFFFFF22' : '#1DB95433',
+                '& .MuiChip-label': { px: 0.75 },
+              }}
+            />
+          </Box>
+        </TableCell>
+      )}
+
+      {/* Date */}
+      {!hiddenColumns.has('Date') && (
+        <TableCell sx={{ ...bodyCellSx }}>
+          <Tooltip title={file.recorded_at ? `Recorded: ${formatDate(file.recorded_at)}` : ''} placement="top">
+            <Typography sx={{ fontSize: 12, color: '#FFFFFF55' }}>{formatDate(file.created_at)}</Typography>
+          </Tooltip>
+        </TableCell>
+      )}
+    </TableRow>
+  )
+})
+
+export default function VideoFileManager({ setAlert }) {
+  const theme = useTheme()
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'))
+
   const [files, setFiles] = useState([])
   const [folders, setFolders] = useState([])
   const [loading, setLoading] = useState(true)
@@ -226,6 +462,12 @@ export default function BulkFileManager({ setAlert }) {
       const { data } = await Api().get('/api/admin/files')
       setFiles(data.files || [])
       setFolders(data.folders || [])
+      setCollapsedFolders((prev) => {
+        if (prev.size > 0) return prev
+        const allFolderKeys = new Set((data.files || []).map((f) => f.folder || ''))
+        ;(data.folders || []).forEach((f) => allFolderKeys.add(f))
+        return allFolderKeys
+      })
     } catch (err) {
       console.error(err)
       setAlert({ open: true, message: err.response?.data || 'Failed to load files', type: 'error' })
@@ -279,9 +521,7 @@ export default function BulkFileManager({ setAlert }) {
 
     // Include empty folders only when no filters are active (search/game filter would hide them anyway)
     const includeEmpty = !search.trim() && gameFilter === '__all__'
-    const allFolders = includeEmpty
-      ? [...new Set([...folders, ...filesByFolder.keys()])]
-      : [...filesByFolder.keys()]
+    const allFolders = includeEmpty ? [...new Set([...folders, ...filesByFolder.keys()])] : [...filesByFolder.keys()]
 
     // Build [folder, files] pairs then sort folder groups by the "best" file
     // in each group according to the active sort, so that folder order reflects
@@ -338,13 +578,13 @@ export default function BulkFileManager({ setAlert }) {
     }
   }
 
-  const toggleSelect = (id) => {
+  const toggleSelect = useCallback((id) => {
     setSelected((prev) => {
       const next = new Set(prev)
       next.has(id) ? next.delete(id) : next.add(id)
       return next
     })
-  }
+  }, [])
 
   const selectedCount = selected.size
 
@@ -552,7 +792,7 @@ export default function BulkFileManager({ setAlert }) {
     })
   }
 
-  if (loading) {
+  if (loading && files.length === 0) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', py: 8 }}>
         <CircularProgress size={36} />
@@ -591,288 +831,517 @@ export default function BulkFileManager({ setAlert }) {
             borderRadius: '8px',
             bgcolor: '#1A3A5C',
             border: '1px solid #3399FF33',
-            display: 'flex',
-            alignItems: 'center',
-            flexWrap: 'wrap',
           }}
         >
-          <Typography variant="body2" sx={{ color: '#FFFFFFCC', whiteSpace: 'nowrap', mr: 2 }}>
+          <Typography variant="body2" sx={{ color: '#FFFFFFCC', whiteSpace: 'nowrap', mb: isMobile ? 1 : 0 }}>
             {selectedCount} selected
           </Typography>
 
-          {/* Group 1: Organize */}
-          <Box sx={{ display: 'flex', gap: '12px' }}>
-            <Tooltip title="Move selected to another folder">
-              <Button
-                size="small"
-                variant="outlined"
-                startIcon={<DriveFileMoveIcon />}
-                onClick={() => {
-                  setMoveTargetFolder(null)
-                  setMoveModalOpen(true)
-                }}
-                sx={{
-                  textTransform: 'none',
-                  borderColor: '#3399FF44',
-                  color: '#7FBFFF',
-                  '&:hover': { borderColor: '#3399FF99', bgcolor: '#3399FF12' },
-                }}
-              >
-                Move
-              </Button>
-            </Tooltip>
-            <Tooltip title="Rename selected files">
-              <Button
-                size="small"
-                variant="outlined"
-                startIcon={<DriveFileRenameOutlineIcon />}
-                onClick={() => {
-                  setRenameOp({ value: 'find_replace', label: 'Find & Replace' })
-                  setRenameFind(selectedFiles.length === 1 ? (selectedFiles[0].title || selectedFiles[0].filename || '') : '')
-                  setRenameReplace('')
-                  setRenamePrefix('')
-                  setRenameSuffix('')
-                  setRenameDialogOpen(true)
-                }}
-                sx={{
-                  textTransform: 'none',
-                  borderColor: '#3399FF44',
-                  color: '#7FBFFF',
-                  '&:hover': { borderColor: '#3399FF99', bgcolor: '#3399FF12' },
-                }}
-              >
-                Rename
-              </Button>
-            </Tooltip>
+          {isMobile ? (
+            /* Mobile: icon-only buttons in a compact wrap row */
+            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+              <Tooltip title="Move to folder">
+                <IconButton
+                  size="small"
+                  onClick={() => {
+                    setMoveTargetFolder(null)
+                    setMoveModalOpen(true)
+                  }}
+                  sx={{
+                    border: '1px solid #3399FF44',
+                    borderRadius: 1,
+                    color: '#7FBFFF',
+                    '&:hover': { bgcolor: '#3399FF12' },
+                  }}
+                >
+                  <DriveFileMoveIcon sx={{ fontSize: 20 }} />
+                </IconButton>
+              </Tooltip>
+              <Tooltip title="Rename">
+                <IconButton
+                  size="small"
+                  onClick={() => {
+                    setRenameOp({ value: 'find_replace', label: 'Find & Replace' })
+                    setRenameFind(
+                      selectedFiles.length === 1 ? selectedFiles[0].title || selectedFiles[0].filename || '' : '',
+                    )
+                    setRenameReplace('')
+                    setRenamePrefix('')
+                    setRenameSuffix('')
+                    setRenameDialogOpen(true)
+                  }}
+                  sx={{
+                    border: '1px solid #3399FF44',
+                    borderRadius: 1,
+                    color: '#7FBFFF',
+                    '&:hover': { bgcolor: '#3399FF12' },
+                  }}
+                >
+                  <DriveFileRenameOutlineIcon sx={{ fontSize: 20 }} />
+                </IconButton>
+              </Tooltip>
+              <Tooltip title="Remove transcodes">
+                <IconButton
+                  size="small"
+                  onClick={() => setRemoveTranscodesDialogOpen(true)}
+                  sx={{
+                    border: '1px solid #FF990044',
+                    borderRadius: 1,
+                    color: '#FFBB66',
+                    '&:hover': { bgcolor: '#FF990012' },
+                  }}
+                >
+                  <VideoSettingsIcon sx={{ fontSize: 20 }} />
+                </IconButton>
+              </Tooltip>
+              <Tooltip title="Remove crop">
+                <IconButton
+                  size="small"
+                  onClick={() => setRemoveCropDialogOpen(true)}
+                  sx={{
+                    border: '1px solid #FF990044',
+                    borderRadius: 1,
+                    color: '#FFBB66',
+                    '&:hover': { bgcolor: '#FF990012' },
+                  }}
+                >
+                  <ContentCutIcon sx={{ fontSize: 20 }} />
+                </IconButton>
+              </Tooltip>
+              <Tooltip title="Set public">
+                <IconButton
+                  size="small"
+                  onClick={() => handleSetPrivacy(false)}
+                  disabled={actionLoading}
+                  sx={{
+                    border: '1px solid #1DB95444',
+                    borderRadius: 1,
+                    color: '#1DB954',
+                    '&:hover': { bgcolor: '#1DB95412' },
+                  }}
+                >
+                  <LockOpenIcon sx={{ fontSize: 20 }} />
+                </IconButton>
+              </Tooltip>
+              <Tooltip title="Set private">
+                <IconButton
+                  size="small"
+                  onClick={() => handleSetPrivacy(true)}
+                  disabled={actionLoading}
+                  sx={{
+                    border: '1px solid #FFFFFF33',
+                    borderRadius: 1,
+                    color: '#FFFFFFCC',
+                    '&:hover': { bgcolor: '#FFFFFF0D' },
+                  }}
+                >
+                  <LockIcon sx={{ fontSize: 20 }} />
+                </IconButton>
+              </Tooltip>
+              <Tooltip title="Delete selected">
+                <IconButton
+                  size="small"
+                  onClick={() => setDeleteDialogOpen(true)}
+                  sx={{
+                    border: '1px solid #f4433644',
+                    borderRadius: 1,
+                    color: '#f44336',
+                    '&:hover': { bgcolor: '#f4433612' },
+                  }}
+                >
+                  <DeleteIcon sx={{ fontSize: 20 }} />
+                </IconButton>
+              </Tooltip>
+            </Box>
+          ) : (
+            /* Desktop: labelled buttons with dividers */
+            <Box sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '8px', mt: 0.5 }}>
+              {/* Group 1: Organize */}
+              <Box sx={{ display: 'flex', gap: '12px' }}>
+                <Tooltip title="Move selected to another folder">
+                  <Button
+                    size="small"
+                    variant="outlined"
+                    startIcon={<DriveFileMoveIcon />}
+                    onClick={() => {
+                      setMoveTargetFolder(null)
+                      setMoveModalOpen(true)
+                    }}
+                    sx={{
+                      textTransform: 'none',
+                      borderColor: '#3399FF44',
+                      color: '#7FBFFF',
+                      '&:hover': { borderColor: '#3399FF99', bgcolor: '#3399FF12' },
+                    }}
+                  >
+                    Move
+                  </Button>
+                </Tooltip>
+                <Tooltip title="Rename selected files">
+                  <Button
+                    size="small"
+                    variant="outlined"
+                    startIcon={<DriveFileRenameOutlineIcon />}
+                    onClick={() => {
+                      setRenameOp({ value: 'find_replace', label: 'Find & Replace' })
+                      setRenameFind(
+                        selectedFiles.length === 1 ? selectedFiles[0].title || selectedFiles[0].filename || '' : '',
+                      )
+                      setRenameReplace('')
+                      setRenamePrefix('')
+                      setRenameSuffix('')
+                      setRenameDialogOpen(true)
+                    }}
+                    sx={{
+                      textTransform: 'none',
+                      borderColor: '#3399FF44',
+                      color: '#7FBFFF',
+                      '&:hover': { borderColor: '#3399FF99', bgcolor: '#3399FF12' },
+                    }}
+                  >
+                    Rename
+                  </Button>
+                </Tooltip>
+              </Box>
+
+              <Box sx={{ width: '1px', height: '24px', bgcolor: '#FFFFFF22', flexShrink: 0 }} />
+
+              {/* Group 2: Cleanup */}
+              <Box sx={{ display: 'flex', gap: '12px' }}>
+                <Tooltip title="Remove transcoded versions (480p / 720p / 1080p)">
+                  <Button
+                    size="small"
+                    variant="outlined"
+                    startIcon={<VideoSettingsIcon />}
+                    onClick={() => setRemoveTranscodesDialogOpen(true)}
+                    sx={{
+                      textTransform: 'none',
+                      borderColor: '#FF990044',
+                      color: '#FFBB66',
+                      '&:hover': { borderColor: '#FF990099', bgcolor: '#FF990012' },
+                    }}
+                  >
+                    Remove Transcodes
+                  </Button>
+                </Tooltip>
+                <Tooltip title="Remove crop settings from selected files">
+                  <Button
+                    size="small"
+                    variant="outlined"
+                    startIcon={<ContentCutIcon />}
+                    onClick={() => setRemoveCropDialogOpen(true)}
+                    sx={{
+                      textTransform: 'none',
+                      borderColor: '#FF990044',
+                      color: '#FFBB66',
+                      '&:hover': { borderColor: '#FF990099', bgcolor: '#FF990012' },
+                    }}
+                  >
+                    Remove Crop
+                  </Button>
+                </Tooltip>
+              </Box>
+
+              <Box sx={{ width: '1px', height: '24px', bgcolor: '#FFFFFF22', flexShrink: 0 }} />
+
+              {/* Group 3: Privacy */}
+              <Box sx={{ display: 'flex', gap: '12px' }}>
+                <Tooltip title="Make selected files public">
+                  <Button
+                    size="small"
+                    variant="outlined"
+                    startIcon={<LockOpenIcon />}
+                    onClick={() => handleSetPrivacy(false)}
+                    disabled={actionLoading}
+                    sx={{
+                      textTransform: 'none',
+                      borderColor: '#1DB95444',
+                      color: '#1DB954',
+                      '&:hover': { borderColor: '#1DB954', bgcolor: '#1DB95412' },
+                    }}
+                  >
+                    Set Public
+                  </Button>
+                </Tooltip>
+                <Tooltip title="Make selected files private">
+                  <Button
+                    size="small"
+                    variant="outlined"
+                    startIcon={<LockIcon />}
+                    onClick={() => handleSetPrivacy(true)}
+                    disabled={actionLoading}
+                    sx={{
+                      textTransform: 'none',
+                      borderColor: '#FFFFFF33',
+                      color: '#FFFFFFCC',
+                      '&:hover': { borderColor: '#FFFFFF66', bgcolor: '#FFFFFF0D' },
+                    }}
+                  >
+                    Set Private
+                  </Button>
+                </Tooltip>
+              </Box>
+
+              <Box sx={{ width: '1px', height: '24px', bgcolor: '#FFFFFF22', flexShrink: 0 }} />
+
+              {/* Group 4: Destructive */}
+              <Tooltip title="Delete selected files">
+                <Button
+                  size="small"
+                  variant="outlined"
+                  startIcon={<DeleteIcon />}
+                  onClick={() => setDeleteDialogOpen(true)}
+                  sx={{
+                    textTransform: 'none',
+                    borderColor: '#f4433644',
+                    color: '#f44336',
+                    '&:hover': { borderColor: '#f44336', bgcolor: '#f4433612' },
+                  }}
+                >
+                  Delete
+                </Button>
+              </Tooltip>
+            </Box>
+          )}
+        </Box>
+      )}
+
+      {/* ── Search / folder filter / game filter / utility buttons ── */}
+      {isMobile ? (
+        <Box sx={{ mb: 1.5, display: 'flex', flexDirection: 'column', gap: 1 }}>
+          {/* Row 1: search full width */}
+          <TextField
+            size="small"
+            placeholder="Search by name or title…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            fullWidth
+            InputProps={{
+              startAdornment: (
+                <InputAdornment position="start">
+                  <SearchIcon sx={{ color: '#FFFFFF55', fontSize: 18 }} />
+                </InputAdornment>
+              ),
+            }}
+            sx={{ ...inputSx, '& .MuiInputBase-input::placeholder': { color: '#FFFFFF55' } }}
+          />
+          {/* Row 2: filters */}
+          <Box sx={{ display: 'flex', gap: 1 }}>
+            <Box sx={{ flex: 1, minWidth: 0 }}>
+              <Select
+                options={[
+                  { value: '__all__', label: 'All Folders' },
+                  ...folders.sort((a, b) => a.localeCompare(b)).map((f) => ({ value: f, label: f })),
+                ]}
+                value={
+                  folderFilter === '__all__'
+                    ? { value: '__all__', label: 'All Folders' }
+                    : { value: folderFilter, label: folderFilter }
+                }
+                onChange={(opt) => setFolderFilter(opt.value)}
+                styles={selectFolderTheme}
+                isSearchable={false}
+              />
+            </Box>
+            {uniqueGames.length > 0 && (
+              <Box sx={{ flex: 1, minWidth: 0 }}>
+                <Select
+                  options={[
+                    { value: '__all__', label: 'All Games' },
+                    ...uniqueGames.map((g) => ({ value: g, label: g })),
+                  ]}
+                  value={
+                    gameFilter === '__all__'
+                      ? { value: '__all__', label: 'All Games' }
+                      : { value: gameFilter, label: gameFilter }
+                  }
+                  onChange={(opt) => setGameFilter(opt.value)}
+                  styles={selectFolderTheme}
+                  isSearchable={false}
+                />
+              </Box>
+            )}
           </Box>
-
-          <Box sx={{ width: '1px', height: '24px', bgcolor: '#FFFFFF22', flexShrink: 0, mr: 2, ml: 1 }} />
-
-          {/* Group 2: Cleanup */}
-          <Box sx={{ display: 'flex', gap: '12px' }}>
-            <Tooltip title="Remove transcoded versions (480p / 720p / 1080p)">
-              <Button
-                size="small"
-                variant="outlined"
-                startIcon={<VideoSettingsIcon />}
-                onClick={() => setRemoveTranscodesDialogOpen(true)}
-                sx={{
-                  textTransform: 'none',
-                  borderColor: '#FF990044',
-                  color: '#FFBB66',
-                  '&:hover': { borderColor: '#FF990099', bgcolor: '#FF990012' },
+          {/* Row 3: utility buttons */}
+          <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', maxWidth: '100%' }}>
+            <Tooltip title="Create a new empty folder in /videos">
+              <OutlinedIconButton
+                icon={<CreateNewFolderIcon sx={{ fontSize: 18 }} />}
+                onClick={() => {
+                  setNewFolderName('')
+                  setCreateFolderDialogOpen(true)
                 }}
               >
-                Remove Transcodes
-              </Button>
+                Create Folder
+              </OutlinedIconButton>
             </Tooltip>
-            <Tooltip title="Remove crop settings from selected files">
-              <Button
-                size="small"
-                variant="outlined"
-                startIcon={<ContentCutIcon />}
-                onClick={() => setRemoveCropDialogOpen(true)}
+            <Tooltip title="Toggle column visibility">
+              <IconButton
+                onClick={(e) => setColVisAnchor(e.currentTarget)}
                 sx={{
-                  textTransform: 'none',
-                  borderColor: '#FF990044',
-                  color: '#FFBB66',
-                  '&:hover': { borderColor: '#FF990099', bgcolor: '#FF990012' },
-                }}
-              >
-                Remove Crop
-              </Button>
-            </Tooltip>
-          </Box>
-
-          <Box sx={{ width: '1px', height: '24px', bgcolor: '#FFFFFF22', flexShrink: 0, mr: 2, ml: 1 }} />
-
-          {/* Group 3: Privacy */}
-          <Box sx={{ display: 'flex', gap: '12px' }}>
-            <Tooltip title="Make selected files public">
-              <Button
-                size="small"
-                variant="outlined"
-                startIcon={<LockOpenIcon />}
-                onClick={() => handleSetPrivacy(false)}
-                disabled={actionLoading}
-                sx={{
-                  textTransform: 'none',
-                  borderColor: '#1DB95444',
-                  color: '#1DB954',
-                  '&:hover': { borderColor: '#1DB954', bgcolor: '#1DB95412' },
-                }}
-              >
-                Set Public
-              </Button>
-            </Tooltip>
-            <Tooltip title="Make selected files private">
-              <Button
-                size="small"
-                variant="outlined"
-                startIcon={<LockIcon />}
-                onClick={() => handleSetPrivacy(true)}
-                disabled={actionLoading}
-                sx={{
-                  textTransform: 'none',
-                  borderColor: '#FFFFFF33',
+                  border: '1px solid #FFFFFF33',
+                  borderRadius: 1,
                   color: '#FFFFFFCC',
                   '&:hover': { borderColor: '#FFFFFF66', bgcolor: '#FFFFFF0D' },
                 }}
               >
-                Set Private
-              </Button>
+                <TuneIcon sx={{ fontSize: 20 }} />
+              </IconButton>
+            </Tooltip>
+            <Tooltip title="Clean up orphaned derived folders">
+              <IconButton
+                onClick={handleCheckOrphans}
+                disabled={orphanLoading}
+                sx={{
+                  border: '1px solid #FFFFFF33',
+                  borderRadius: 1,
+                  color: '#FFFFFFCC',
+                  '&:hover': { borderColor: '#FFFFFF66', bgcolor: '#FFFFFF0D' },
+                }}
+              >
+                {orphanLoading ? (
+                  <CircularProgress size={20} color="inherit" />
+                ) : (
+                  <DeleteSweepIcon sx={{ fontSize: 20 }} />
+                )}
+              </IconButton>
+            </Tooltip>
+            <Tooltip title="Refresh file list">
+              <IconButton
+                onClick={fetchFiles}
+                disabled={loading}
+                sx={{
+                  border: '1px solid #FFFFFF33',
+                  borderRadius: 1,
+                  color: '#FFFFFFCC',
+                  '&:hover': { borderColor: '#FFFFFF66', bgcolor: '#FFFFFF0D' },
+                }}
+              >
+                <RefreshIcon sx={{ fontSize: 20 }} />
+              </IconButton>
             </Tooltip>
           </Box>
-
-          <Box sx={{ width: '1px', height: '24px', bgcolor: '#FFFFFF22', flexShrink: 0, mr: 2, ml: 1 }} />
-
-          {/* Group 4: Destructive */}
-          <Tooltip title="Delete selected files">
-            <Button
-              size="small"
-              variant="outlined"
-              startIcon={<DeleteIcon />}
-              onClick={() => setDeleteDialogOpen(true)}
-              sx={{
-                textTransform: 'none',
-                borderColor: '#f4433644',
-                color: '#f44336',
-                '&:hover': { borderColor: '#f44336', bgcolor: '#f4433612' },
-              }}
-            >
-              Delete
-            </Button>
-          </Tooltip>
         </Box>
-      )}
-
-      {/* ── Search / folder filter / game filter / create folder ── */}
-      <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1.5, flexWrap: 'wrap', gap: 1 }}>
-        <TextField
-          size="small"
-          placeholder="Search by name or title…"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          InputProps={{
-            startAdornment: (
-              <InputAdornment position="start">
-                <SearchIcon sx={{ color: '#FFFFFF55', fontSize: 18 }} />
-              </InputAdornment>
-            ),
-          }}
-          sx={{
-            flex: 1,
-            minWidth: 140,
-            height: 38,
-            '& .MuiOutlinedInput-root': {
-              '& fieldset': { borderColor: '#FFFFFF22' },
-              '&:hover fieldset': { borderColor: '#FFFFFF44' },
-              '&.Mui-focused fieldset': { borderColor: '#FFFFFF66' },
-            },
-            '& input': { color: '#FFFFFFCC' },
-            '& .MuiInputBase-input::placeholder': { color: '#FFFFFF55' },
-          }}
-        />
-
-        <Box sx={{ minWidth: 160 }}>
-          <Select
-            options={[
-              { value: '__all__', label: 'All Folders' },
-              ...folders.sort((a, b) => a.localeCompare(b)).map((f) => ({ value: f, label: f })),
-            ]}
-            value={
-              folderFilter === '__all__'
-                ? { value: '__all__', label: 'All Folders' }
-                : { value: folderFilter, label: folderFilter }
-            }
-            onChange={(opt) => setFolderFilter(opt.value)}
-            styles={selectFolderTheme}
-            isSearchable={false}
+      ) : (
+        <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1.5, flexWrap: 'wrap', gap: 1 }}>
+          <TextField
+            size="small"
+            placeholder="Search by name or title…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            InputProps={{
+              startAdornment: (
+                <InputAdornment position="start">
+                  <SearchIcon sx={{ color: '#FFFFFF55', fontSize: 18 }} />
+                </InputAdornment>
+              ),
+            }}
+            sx={{
+              ...inputSx,
+              flex: 1,
+              minWidth: 140,
+              height: 38,
+              '& .MuiInputBase-input::placeholder': { color: '#FFFFFF55' },
+            }}
           />
-        </Box>
 
-        {uniqueGames.length > 0 && (
           <Box sx={{ minWidth: 160 }}>
             <Select
-              options={[{ value: '__all__', label: 'All Games' }, ...uniqueGames.map((g) => ({ value: g, label: g }))]}
+              options={[
+                { value: '__all__', label: 'All Folders' },
+                ...folders.sort((a, b) => a.localeCompare(b)).map((f) => ({ value: f, label: f })),
+              ]}
               value={
-                gameFilter === '__all__'
-                  ? { value: '__all__', label: 'All Games' }
-                  : { value: gameFilter, label: gameFilter }
+                folderFilter === '__all__'
+                  ? { value: '__all__', label: 'All Folders' }
+                  : { value: folderFilter, label: folderFilter }
               }
-              onChange={(opt) => setGameFilter(opt.value)}
+              onChange={(opt) => setFolderFilter(opt.value)}
               styles={selectFolderTheme}
               isSearchable={false}
             />
           </Box>
-        )}
 
-        <Tooltip title="Create a new empty folder in /videos">
-          <Button
-            size="medium"
-            variant="outlined"
-            startIcon={<CreateNewFolderIcon />}
-            onClick={() => {
-              setNewFolderName('')
-              setCreateFolderDialogOpen(true)
-            }}
-            sx={{
-              height: 38,
-              textTransform: 'none',
-              whiteSpace: 'nowrap',
-              borderColor: '#FFFFFF33',
-              color: '#FFFFFFCC',
-              '&:hover': { borderColor: '#FFFFFF66', bgcolor: '#FFFFFF0D' },
-            }}
-          >
-            Create Folder
-          </Button>
-        </Tooltip>
+          {uniqueGames.length > 0 && (
+            <Box sx={{ minWidth: 160 }}>
+              <Select
+                options={[
+                  { value: '__all__', label: 'All Games' },
+                  ...uniqueGames.map((g) => ({ value: g, label: g })),
+                ]}
+                value={
+                  gameFilter === '__all__'
+                    ? { value: '__all__', label: 'All Games' }
+                    : { value: gameFilter, label: gameFilter }
+                }
+                onChange={(opt) => setGameFilter(opt.value)}
+                styles={selectFolderTheme}
+                isSearchable={false}
+              />
+            </Box>
+          )}
 
-        <Tooltip title="Toggle column visibility">
-          <IconButton
-            onClick={(e) => setColVisAnchor(e.currentTarget)}
-            sx={{
-              border: '1px solid #FFFFFF33',
-              borderRadius: 1,
-              color: '#FFFFFFCC',
-              '&:hover': { borderColor: '#FFFFFF66', bgcolor: '#FFFFFF0D' },
-            }}
-          >
-            <TuneIcon sx={{ fontSize: 20 }} />
-          </IconButton>
-        </Tooltip>
+          <Tooltip title="Create a new empty folder in /videos">
+            <OutlinedIconButton
+              icon={<CreateNewFolderIcon sx={{ fontSize: 18 }} />}
+              onClick={() => {
+                setNewFolderName('')
+                setCreateFolderDialogOpen(true)
+              }}
+            >
+              Create Folder
+            </OutlinedIconButton>
+          </Tooltip>
 
-        <Tooltip title="Clean up orphaned derived folders">
-          <IconButton
-            onClick={handleCheckOrphans}
-            disabled={orphanLoading}
-            sx={{
-              border: '1px solid #FFFFFF33',
-              borderRadius: 1,
-              color: '#FFFFFFCC',
-              '&:hover': { borderColor: '#FFFFFF66', bgcolor: '#FFFFFF0D' },
-            }}
-          >
-            {orphanLoading ? <CircularProgress size={20} color="inherit" /> : <DeleteSweepIcon sx={{ fontSize: 20 }} />}
-          </IconButton>
-        </Tooltip>
+          <Tooltip title="Toggle column visibility">
+            <IconButton
+              onClick={(e) => setColVisAnchor(e.currentTarget)}
+              sx={{
+                border: '1px solid #FFFFFF33',
+                borderRadius: 1,
+                color: '#FFFFFFCC',
+                '&:hover': { borderColor: '#FFFFFF66', bgcolor: '#FFFFFF0D' },
+              }}
+            >
+              <TuneIcon sx={{ fontSize: 20 }} />
+            </IconButton>
+          </Tooltip>
 
-        <Tooltip title="Refresh file list">
-          <IconButton
-            onClick={fetchFiles}
-            disabled={loading}
-            sx={{
-              border: '1px solid #FFFFFF33',
-              borderRadius: 1,
-              color: '#FFFFFFCC',
-              '&:hover': { borderColor: '#FFFFFF66', bgcolor: '#FFFFFF0D' },
-            }}
-          >
-            <RefreshIcon sx={{ fontSize: 20 }} />
-          </IconButton>
-        </Tooltip>
-      </Stack>
+          <Tooltip title="Clean up orphaned derived folders">
+            <IconButton
+              onClick={handleCheckOrphans}
+              disabled={orphanLoading}
+              sx={{
+                border: '1px solid #FFFFFF33',
+                borderRadius: 1,
+                color: '#FFFFFFCC',
+                '&:hover': { borderColor: '#FFFFFF66', bgcolor: '#FFFFFF0D' },
+              }}
+            >
+              {orphanLoading ? (
+                <CircularProgress size={20} color="inherit" />
+              ) : (
+                <DeleteSweepIcon sx={{ fontSize: 20 }} />
+              )}
+            </IconButton>
+          </Tooltip>
+
+          <Tooltip title="Refresh file list">
+            <IconButton
+              onClick={fetchFiles}
+              disabled={loading}
+              sx={{
+                border: '1px solid #FFFFFF33',
+                borderRadius: 1,
+                color: '#FFFFFFCC',
+                '&:hover': { borderColor: '#FFFFFF66', bgcolor: '#FFFFFF0D' },
+              }}
+            >
+              <RefreshIcon sx={{ fontSize: 20 }} />
+            </IconButton>
+          </Tooltip>
+        </Stack>
+      )}
 
       {/* ── Column visibility popover ── */}
       <Popover
@@ -916,7 +1385,7 @@ export default function BulkFileManager({ setAlert }) {
           borderRadius: '8px',
           border: '1px solid #FFFFFF14',
           bgcolor: '#FFFFFF05',
-          maxHeight: 'calc(100vh - 280px)',
+          maxHeight: isMobile ? 'calc(100vh - 340px)' : 'calc(100vh - 280px)',
           overflow: 'auto',
         }}
       >
@@ -1101,255 +1570,15 @@ export default function BulkFileManager({ setAlert }) {
 
                     {/* File rows */}
                     {!isCollapsed &&
-                      groupItems.map((file) => {
-                        const isSelected = selected.has(file.video_id)
-                        const displayName = file.title || file.filename
-                        const hasTranscodes = file.has_480p || file.has_720p || file.has_1080p
-                        return (
-                          <TableRow
-                            key={file.video_id}
-                            hover
-                            selected={isSelected}
-                            onClick={() => {
-                              window.location.href = `/#/w/${file.video_id}`
-                            }}
-                            sx={{
-                              cursor: 'pointer',
-                              bgcolor: isSelected ? '#3399FF14' : 'transparent',
-                              '&:hover': { bgcolor: isSelected ? '#3399FF1E' : '#FFFFFF08' },
-                              '&.Mui-selected': { bgcolor: '#3399FF14' },
-                              '&.Mui-selected:hover': { bgcolor: '#3399FF1E' },
-                            }}
-                          >
-                            {/* Checkbox */}
-                            <TableCell
-                              padding="checkbox"
-                              sx={{ borderBottom: '1px solid #FFFFFF0D' }}
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                toggleSelect(file.video_id)
-                              }}
-                            >
-                              <Checkbox
-                                size="small"
-                                checked={isSelected}
-                                onChange={() => {}}
-                                sx={{ color: '#FFFFFF44', '&.Mui-checked': { color: '#3399FF' } }}
-                              />
-                            </TableCell>
-
-                            {/* Name */}
-                            <TableCell sx={{ ...bodyCellSx, maxWidth: 300, overflow: 'hidden' }}>
-                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, overflow: 'hidden' }}>
-                                <Tooltip title={displayName} placement="top" enterDelay={600}>
-                                  <Typography
-                                    sx={{
-                                      fontSize: 13,
-                                      color: '#FFFFFFCC',
-                                      overflow: 'hidden',
-                                      textOverflow: 'ellipsis',
-                                      whiteSpace: 'nowrap',
-                                      flex: 1,
-                                    }}
-                                  >
-                                    {displayName}
-                                  </Typography>
-                                </Tooltip>
-                                <Tooltip title="Open in new tab">
-                                  <IconButton
-                                    size="small"
-                                    onClick={(e) => {
-                                      e.stopPropagation()
-                                      window.open(`/#/w/${file.video_id}`, '_blank')
-                                    }}
-                                    sx={{
-                                      color: '#FFFFFF33',
-                                      p: 0.25,
-                                      flexShrink: 0,
-                                      '&:hover': { color: '#FFFFFF99' },
-                                    }}
-                                  >
-                                    <OpenInNewIcon sx={{ fontSize: 13 }} />
-                                  </IconButton>
-                                </Tooltip>
-                              </Box>
-                            </TableCell>
-
-                            {/* Size */}
-                            <TableCell sx={{ ...bodyCellSx }}>
-                              <Tooltip
-                                arrow
-                                placement="top"
-                                title={
-                                  file.derived_size > 0 ? (
-                                    <Box>
-                                      <Typography sx={{ fontSize: 12 }}>
-                                        Derived: {formatSize(file.derived_size)}
-                                      </Typography>
-                                      <Typography sx={{ fontSize: 12 }}>
-                                        Total: {formatSize((file.size || 0) + (file.derived_size || 0))}
-                                      </Typography>
-                                    </Box>
-                                  ) : (
-                                    ''
-                                  )
-                                }
-                              >
-                                <Typography sx={{ fontSize: 12, color: '#FFFFFF77' }}>
-                                  {formatSize(file.size)}
-                                </Typography>
-                              </Tooltip>
-                            </TableCell>
-
-                            {/* Total Size */}
-                            {!hiddenColumns.has('Total Size') && (
-                              <TableCell sx={{ ...bodyCellSx }}>
-                                <Typography sx={{ fontSize: 12, color: '#FFFFFF77' }}>
-                                  {formatSize((file.size || 0) + (file.derived_size || 0))}
-                                </Typography>
-                              </TableCell>
-                            )}
-
-                            {/* Duration */}
-                            {!hiddenColumns.has('Duration') && (
-                              <TableCell sx={{ ...bodyCellSx }}>
-                                <Typography sx={{ fontSize: 12, color: '#FFFFFF77' }}>
-                                  {formatDuration(file.duration)}
-                                </Typography>
-                              </TableCell>
-                            )}
-
-                            {/* Resolution */}
-                            {!hiddenColumns.has('Resolution') && (
-                              <TableCell sx={{ ...bodyCellSx }}>
-                                <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                                  <Chip
-                                    label={formatResolution(file.width, file.height)}
-                                    size="small"
-                                    sx={{
-                                      height: 17,
-                                      fontSize: 10,
-                                      bgcolor: '#FFFFFF12',
-                                      color: '#FFFFFF66',
-                                      '& .MuiChip-label': { px: 0.75 },
-                                    }}
-                                  />
-                                </Box>
-                              </TableCell>
-                            )}
-
-                            {/* Transcodes */}
-                            {!hiddenColumns.has('Transcodes') && (
-                              <TableCell sx={{ ...bodyCellSx }}>
-                                {hasTranscodes ? (
-                                  <Box sx={{ display: 'flex', gap: 0.4, flexWrap: 'wrap' }}>
-                                    {file.has_1080p && (
-                                      <Chip
-                                        label="1080p"
-                                        size="small"
-                                        sx={{
-                                          height: 17,
-                                          fontSize: 10,
-                                          bgcolor: '#FFFFFF12',
-                                          color: '#FFFFFF66',
-                                          '& .MuiChip-label': { px: 0.75 },
-                                        }}
-                                      />
-                                    )}
-                                    {file.has_720p && (
-                                      <Chip
-                                        label="720p"
-                                        size="small"
-                                        sx={{
-                                          height: 17,
-                                          fontSize: 10,
-                                          bgcolor: '#FFFFFF12',
-                                          color: '#FFFFFF66',
-                                          '& .MuiChip-label': { px: 0.75 },
-                                        }}
-                                      />
-                                    )}
-                                    {file.has_480p && (
-                                      <Chip
-                                        label="480p"
-                                        size="small"
-                                        sx={{
-                                          height: 17,
-                                          fontSize: 10,
-                                          bgcolor: '#FFFFFF12',
-                                          color: '#FFFFFF66',
-                                          '& .MuiChip-label': { px: 0.75 },
-                                        }}
-                                      />
-                                    )}
-                                  </Box>
-                                ) : (
-                                  <Typography sx={{ fontSize: 11, color: '#FFFFFF33' }}>—</Typography>
-                                )}
-                              </TableCell>
-                            )}
-
-                            {/* Cropped */}
-                            {!hiddenColumns.has('Cropped') && (
-                              <TableCell sx={{ ...bodyCellSx }}>
-                                {file.has_crop ? (
-                                  <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                                    <Chip
-                                      label="Cropped"
-                                      size="small"
-                                      sx={{
-                                        height: 17,
-                                        fontSize: 10,
-                                        bgcolor: '#FF990018',
-                                        color: '#FF9900BB',
-                                        border: '1px solid #FF990033',
-                                        '& .MuiChip-label': { px: 0.75 },
-                                      }}
-                                    />
-                                  </Box>
-                                ) : (
-                                  <Typography sx={{ fontSize: 11, color: '#FFFFFF33' }}>—</Typography>
-                                )}
-                              </TableCell>
-                            )}
-
-                            {/* Privacy */}
-                            {!hiddenColumns.has('Privacy') && (
-                              <TableCell sx={{ ...bodyCellSx }}>
-                                <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                                  <Chip
-                                    label={file.private ? 'Private' : 'Public'}
-                                    size="small"
-                                    sx={{
-                                      height: 17,
-                                      fontSize: 10,
-                                      bgcolor: file.private ? '#FFFFFF12' : '#1DB95418',
-                                      color: file.private ? '#FFFFFF66' : '#1DB954',
-                                      border: '1px solid',
-                                      borderColor: file.private ? '#FFFFFF22' : '#1DB95433',
-                                      '& .MuiChip-label': { px: 0.75 },
-                                    }}
-                                  />
-                                </Box>
-                              </TableCell>
-                            )}
-
-                            {/* Date */}
-                            {!hiddenColumns.has('Date') && (
-                              <TableCell sx={{ ...bodyCellSx }}>
-                                <Tooltip
-                                  title={file.recorded_at ? `Recorded: ${formatDate(file.recorded_at)}` : ''}
-                                  placement="top"
-                                >
-                                  <Typography sx={{ fontSize: 12, color: '#FFFFFF55' }}>
-                                    {formatDate(file.created_at)}
-                                  </Typography>
-                                </Tooltip>
-                              </TableCell>
-                            )}
-                          </TableRow>
-                        )
-                      })}
+                      groupItems.map((file) => (
+                        <VideoFileRow
+                          key={file.video_id}
+                          file={file}
+                          isSelected={selected.has(file.video_id)}
+                          onToggle={toggleSelect}
+                          hiddenColumns={hiddenColumns}
+                        />
+                      ))}
                   </React.Fragment>
                 )
               })
@@ -1378,20 +1607,7 @@ export default function BulkFileManager({ setAlert }) {
           {uniqueCurrentFolders.size === 1 && (
             <Box sx={{ mb: 2 }}>
               <Typography sx={labelSx}>Current location</Typography>
-              <Box
-                sx={{
-                  bgcolor: '#FFFFFF0D',
-                  border: '1px solid #FFFFFF26',
-                  borderRadius: '8px',
-                  px: 1.5,
-                  height: 38,
-                  display: 'flex',
-                  alignItems: 'center',
-                  fontSize: 14,
-                  fontFamily: 'Inter, sans-serif',
-                  color: '#FFFFFFCC',
-                }}
-              >
+              <Box sx={{ ...rowBoxSx, fontSize: 14, fontFamily: 'Inter, sans-serif', color: '#FFFFFFCC' }}>
                 {`/videos/${[...uniqueCurrentFolders][0]}/`}
               </Box>
             </Box>
@@ -1448,7 +1664,7 @@ export default function BulkFileManager({ setAlert }) {
         onClose={() => !actionLoading && setDeleteDialogOpen(false)}
         slotProps={{ paper: { sx: { ...dialogPaperSx, minWidth: 380 } } }}
       >
-        <DialogTitle sx={{ fontWeight: 700, color: 'white' }}>
+        <DialogTitle sx={dialogTitleSx}>
           Delete {selectedCount} file{selectedCount !== 1 ? 's' : ''}?
         </DialogTitle>
         <DialogContent>
@@ -1484,7 +1700,7 @@ export default function BulkFileManager({ setAlert }) {
         onClose={() => !actionLoading && setRemoveTranscodesDialogOpen(false)}
         slotProps={{ paper: { sx: { ...dialogPaperSx, minWidth: 380 } } }}
       >
-        <DialogTitle sx={{ fontWeight: 700, color: 'white' }}>Remove Transcodes?</DialogTitle>
+        <DialogTitle sx={dialogTitleSx}>Remove Transcodes?</DialogTitle>
         <DialogContent>
           <DialogContentText sx={{ color: '#FFFFFFAA' }}>
             This will delete the 480p, 720p, and 1080p transcoded files for {selectedCount} selected file
@@ -1517,7 +1733,7 @@ export default function BulkFileManager({ setAlert }) {
         onClose={() => !actionLoading && setRemoveCropDialogOpen(false)}
         slotProps={{ paper: { sx: { ...dialogPaperSx, minWidth: 380 } } }}
       >
-        <DialogTitle sx={{ fontWeight: 700, color: 'white' }}>Remove Crop?</DialogTitle>
+        <DialogTitle sx={dialogTitleSx}>Remove Crop?</DialogTitle>
         <DialogContent>
           <DialogContentText sx={{ color: '#FFFFFFAA' }}>
             This will clear the crop settings and remove associated transcoded files for {selectedCount} selected file
@@ -1550,7 +1766,7 @@ export default function BulkFileManager({ setAlert }) {
         onClose={() => !actionLoading && setCreateFolderDialogOpen(false)}
         slotProps={{ paper: { sx: { ...dialogPaperSx, minWidth: 360 } } }}
       >
-        <DialogTitle sx={{ fontWeight: 700, color: 'white' }}>Create New Folder</DialogTitle>
+        <DialogTitle sx={dialogTitleSx}>Create New Folder</DialogTitle>
         <DialogContent>
           <DialogContentText sx={{ color: '#FFFFFFAA', mb: 2 }}>
             Enter a name for the new folder. It will be created in the root of your videos directory.
@@ -1566,14 +1782,7 @@ export default function BulkFileManager({ setAlert }) {
               if (e.key === 'Enter' && newFolderName.trim() && !actionLoading) handleCreateFolder()
             }}
             InputLabelProps={{ sx: { color: '#FFFFFF66' } }}
-            sx={{
-              '& .MuiOutlinedInput-root': {
-                '& fieldset': { borderColor: '#FFFFFF22' },
-                '&:hover fieldset': { borderColor: '#FFFFFF44' },
-                '&.Mui-focused fieldset': { borderColor: '#FFFFFF66' },
-              },
-              '& input': { color: '#FFFFFFCC' },
-            }}
+            sx={inputSx}
           />
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2, gap: 1 }}>
@@ -1602,7 +1811,7 @@ export default function BulkFileManager({ setAlert }) {
         onClose={() => !actionLoading && setRenameDialogOpen(false)}
         slotProps={{ paper: { sx: { ...dialogPaperSx, width: 440, minWidth: 440, minHeight: 420 } } }}
       >
-        <DialogTitle sx={{ fontWeight: 700, color: 'white' }}>
+        <DialogTitle sx={dialogTitleSx}>
           Rename {selectedCount} file{selectedCount !== 1 ? 's' : ''}
         </DialogTitle>
         <DialogContent>
@@ -1627,14 +1836,7 @@ export default function BulkFileManager({ setAlert }) {
                 onChange={(e) => setRenameFind(e.target.value)}
                 disabled={actionLoading}
                 InputLabelProps={{ sx: { color: '#FFFFFF66' } }}
-                sx={{
-                  '& .MuiOutlinedInput-root': {
-                    '& fieldset': { borderColor: '#FFFFFF22' },
-                    '&:hover fieldset': { borderColor: '#FFFFFF44' },
-                    '&.Mui-focused fieldset': { borderColor: '#FFFFFF66' },
-                  },
-                  '& input': { color: '#FFFFFFCC' },
-                }}
+                sx={inputSx}
               />
               <TextField
                 size="small"
@@ -1643,14 +1845,7 @@ export default function BulkFileManager({ setAlert }) {
                 onChange={(e) => setRenameReplace(e.target.value)}
                 disabled={actionLoading}
                 InputLabelProps={{ sx: { color: '#FFFFFF66' } }}
-                sx={{
-                  '& .MuiOutlinedInput-root': {
-                    '& fieldset': { borderColor: '#FFFFFF22' },
-                    '&:hover fieldset': { borderColor: '#FFFFFF44' },
-                    '&.Mui-focused fieldset': { borderColor: '#FFFFFF66' },
-                  },
-                  '& input': { color: '#FFFFFFCC' },
-                }}
+                sx={inputSx}
               />
             </Stack>
           )}
@@ -1665,14 +1860,7 @@ export default function BulkFileManager({ setAlert }) {
                 onChange={(e) => setRenamePrefix(e.target.value)}
                 disabled={actionLoading}
                 InputLabelProps={{ sx: { color: '#FFFFFF66' } }}
-                sx={{
-                  '& .MuiOutlinedInput-root': {
-                    '& fieldset': { borderColor: '#FFFFFF22' },
-                    '&:hover fieldset': { borderColor: '#FFFFFF44' },
-                    '&.Mui-focused fieldset': { borderColor: '#FFFFFF66' },
-                  },
-                  '& input': { color: '#FFFFFFCC' },
-                }}
+                sx={inputSx}
               />
             </Box>
           )}
@@ -1687,14 +1875,7 @@ export default function BulkFileManager({ setAlert }) {
                 onChange={(e) => setRenameSuffix(e.target.value)}
                 disabled={actionLoading}
                 InputLabelProps={{ sx: { color: '#FFFFFF66' } }}
-                sx={{
-                  '& .MuiOutlinedInput-root': {
-                    '& fieldset': { borderColor: '#FFFFFF22' },
-                    '&:hover fieldset': { borderColor: '#FFFFFF44' },
-                    '&.Mui-focused fieldset': { borderColor: '#FFFFFF66' },
-                  },
-                  '& input': { color: '#FFFFFFCC' },
-                }}
+                sx={inputSx}
               />
             </Box>
           )}
@@ -1773,7 +1954,20 @@ export default function BulkFileManager({ setAlert }) {
           <Button
             variant="contained"
             onClick={handleBulkRename}
-            disabled={actionLoading || selectedFiles.some((f) => !applyRenameOperation(f.title || f.filename || '', renameOp.value, renameFind, renameReplace, renamePrefix, renameSuffix).trim())}
+            disabled={
+              actionLoading ||
+              selectedFiles.some(
+                (f) =>
+                  !applyRenameOperation(
+                    f.title || f.filename || '',
+                    renameOp.value,
+                    renameFind,
+                    renameReplace,
+                    renamePrefix,
+                    renameSuffix,
+                  ).trim(),
+              )
+            }
             startIcon={actionLoading ? <CircularProgress size={14} color="inherit" /> : <DriveFileRenameOutlineIcon />}
             sx={{ textTransform: 'none' }}
           >
@@ -1788,7 +1982,7 @@ export default function BulkFileManager({ setAlert }) {
         onClose={() => !orphanLoading && setOrphanDialogOpen(false)}
         slotProps={{ paper: { sx: { ...dialogPaperSx, minWidth: 380 } } }}
       >
-        <DialogTitle sx={{ fontWeight: 700, color: 'white' }}>Clean Up Orphaned Derived Folders?</DialogTitle>
+        <DialogTitle sx={dialogTitleSx}>Clean Up Orphaned Derived Folders?</DialogTitle>
         <DialogContent>
           <DialogContentText sx={{ color: '#FFFFFFAA' }}>
             Found {orphans.length} orphaned derived folder{orphans.length !== 1 ? 's' : ''} totalling{' '}

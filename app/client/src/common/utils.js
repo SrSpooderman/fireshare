@@ -24,7 +24,7 @@ export const getPublicWatchUrl = () => {
   }
   const portWithColon = window.location.port ? `:${window.location.port}` : ''
   return isLocalhost
-    ? `http://${window.location.hostname}:${import.meta.env.VITE_SERVER_PORT || window.location.port}/#/w/`
+    ? `http://${window.location.hostname}:${import.meta.env.VITE_SERVER_PORT || window.location.port}/w/`
     : `${window.location.protocol}//${window.location.hostname}${portWithColon}/w/`
 }
 
@@ -153,6 +153,47 @@ export const getVideoUrl = (videoId, quality, extension) => {
 }
 
 /**
+ * Gets the public share URL for an image (/i/<image_id>)
+ * @returns {string} Base URL ending with /i/
+ */
+export const getPublicImageUrl = () => {
+  const shareableLinkDomain = getSetting('ui_config')?.['shareable_link_domain']
+  if (shareableLinkDomain) {
+    return `${shareableLinkDomain}/i/`
+  }
+  const portWithColon = window.location.port ? `:${window.location.port}` : ''
+  return isLocalhost
+    ? `http://${window.location.hostname}:${import.meta.env.VITE_SERVER_PORT || window.location.port}/i/`
+    : `${window.location.protocol}//${window.location.hostname}${portWithColon}/i/`
+}
+
+/**
+ * Gets the thumbnail URL for an image
+ */
+export const getImageThumbnailUrl = (imageId, cacheBuster) => {
+  const baseUrl = getUrl()
+  const SERVED_BY = getServedBy()
+  if (SERVED_BY === 'nginx') {
+    const url = `${baseUrl}/_content/derived/${imageId}/thumbnail.webp`
+    return cacheBuster ? `${url}?v=${cacheBuster}` : url
+  }
+  const url = `${baseUrl}/api/image/thumbnail?id=${imageId}`
+  return cacheBuster ? `${url}&v=${cacheBuster}` : url
+}
+
+/**
+ * Gets the full-quality URL for an image
+ */
+export const getImageUrl = (imageId) => {
+  const baseUrl = getUrl()
+  const SERVED_BY = getServedBy()
+  if (SERVED_BY === 'nginx') {
+    return `${baseUrl}/_content/derived/${imageId}/image.webp`
+  }
+  return `${baseUrl}/api/image?id=${imageId}`
+}
+
+/**
  * Generates video sources array for Video.js player with quality options
  * Defaults to original quality, with 720p and 1080p as alternatives
  * @param {string} videoId - The video ID
@@ -172,9 +213,9 @@ export const getVideoSources = (videoId, videoInfo, extension) => {
 
   // When a cropped version exists, point "Source" at the cropped file instead of the original
   const sourceUrl = hasCrop
-    ? (SERVED_BY === 'nginx'
-        ? `${URL}/_content/derived/${videoId}/${videoId}-cropped.mp4`
-        : `${URL}/api/video?id=${videoId}&quality=cropped`)
+    ? SERVED_BY === 'nginx'
+      ? `${URL}/_content/derived/${videoId}/${videoId}-cropped.mp4`
+      : `${URL}/api/video?id=${videoId}&quality=cropped`
     : getVideoUrl(videoId, 'original', extension)
 
   sources.push({

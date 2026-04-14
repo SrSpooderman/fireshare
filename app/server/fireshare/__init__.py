@@ -108,6 +108,7 @@ def create_app(init_schedule=False):
     app.config['DATA_DIRECTORY'] = os.getenv('DATA_DIRECTORY')
     app.config['VIDEO_DIRECTORY'] = os.getenv('VIDEO_DIRECTORY')
     app.config['PROCESSED_DIRECTORY'] = os.getenv('PROCESSED_DIRECTORY')
+    app.config['IMAGE_DIRECTORY'] = os.getenv('IMAGE_DIRECTORY')
     app.config['ADMIN_USERNAME'] = os.getenv('ADMIN_USERNAME')
     app.config['ADMIN_PASSWORD'] = os.getenv('ADMIN_PASSWORD')
     app.config['DISABLE_ADMINCREATE'] = bool(os.getenv("DISABLE_ADMINCREATE"))
@@ -185,12 +186,23 @@ def create_app(init_schedule=False):
             path.mkdir(parents=True, exist_ok=True)
     subpaths = [
         paths['processed'] / 'video_links',
+        paths['processed'] / 'image_links',
         paths['processed'] / 'derived',
     ]
     for subpath in subpaths:
         if not subpath.is_dir():
             logger.info(f"Creating subpath directory at {str(subpath.absolute())}")
             subpath.mkdir(parents=True, exist_ok=True)
+
+    # Clean up any leftover chunk files from interrupted uploads
+    import glob as _glob
+    chunk_files = _glob.glob(str(paths['video'] / '**' / '*.part[0-9][0-9][0-9][0-9]'), recursive=True)
+    for chunk_file in chunk_files:
+        try:
+            os.remove(chunk_file)
+            logger.info(f"Removed leftover upload chunk: {chunk_file}")
+        except OSError as e:
+            logger.warning(f"Failed to remove leftover upload chunk {chunk_file}: {e}")
 
     # Ensure game_assets directory exists
     game_assets_dir = paths['data'] / 'game_assets'
@@ -275,20 +287,21 @@ def create_app(init_schedule=False):
     if 'integrations' not in DEFAULT_CONFIG:
         DEFAULT_CONFIG['integrations'] = {}
 
-    DEFAULT_CONFIG['integrations']['discord_webhook_url'] = app.config.get('DISCORD_WEBHOOK_URL', '')
-    DEFAULT_CONFIG['integrations']['generic_webhook_url'] = app.config.get('GENERIC_WEBHOOK_URL', '')
-    DEFAULT_CONFIG['integrations']['generic_webhook_payload'] = app.config.get('GENERIC_WEBHOOK_PAYLOAD', {})
-
     update_config(paths['data'] / 'config.json')
 
+    # Only overwrite integration settings in config.json if the env vars are explicitly set.
+    # This preserves values the user may have configured via the UI or directly in config.json.
     config_path = paths['data'] / 'config.json'
     with open(config_path, 'r+') as f:
         data = json.load(f)
-        
-        data['integrations']['discord_webhook_url'] = app.config.get('DISCORD_WEBHOOK_URL', '')
-        data['integrations']['generic_webhook_url'] = app.config.get('GENERIC_WEBHOOK_URL', '')
-        data['integrations']['generic_webhook_payload'] = app.config.get('GENERIC_WEBHOOK_PAYLOAD', {})
-        
+
+        if app.config.get('DISCORD_WEBHOOK_URL'):
+            data['integrations']['discord_webhook_url'] = app.config['DISCORD_WEBHOOK_URL']
+        if app.config.get('GENERIC_WEBHOOK_URL'):
+            data['integrations']['generic_webhook_url'] = app.config['GENERIC_WEBHOOK_URL']
+        if app.config.get('GENERIC_WEBHOOK_PAYLOAD'):
+            data['integrations']['generic_webhook_payload'] = app.config['GENERIC_WEBHOOK_PAYLOAD']
+
         f.seek(0)
         json.dump(data, f, indent=2)
         f.truncate()
@@ -307,17 +320,18 @@ def create_app(init_schedule=False):
                 db.session.add(admin_user)
                 db.session.commit()
             if admin:
-                try:
-                    password_mismatch = not check_password_hash(admin.password, app.config['ADMIN_PASSWORD'])
-                except ValueError:
-                    password_mismatch = True  # old hash format (sha256), force reset to pbkdf2:sha256
-                if password_mismatch:
-                    row = db.session.query(_User).filter_by(admin=True, ldap=False).first()
-                    row.password = generate_password_hash(app.config['ADMIN_PASSWORD'], method='pbkdf2:sha256')
-                    db.session.commit()
+                if app.config['ADMIN_PASSWORD']:
+                    try:
+                        password_mismatch = not check_password_hash(admin.password, app.config['ADMIN_PASSWORD'])
+                    except ValueError:
+                        password_mismatch = True  # old hash format (sha256), force reset to pbkdf2:sha256
+                    if password_mismatch:
+                        row = db.session.query(_User).filter_by(admin=True, ldap=False).first()
+                        row.password = generate_password_hash(app.config['ADMIN_PASSWORD'], method='pbkdf2:sha256')
+                        db.session.commit()
                 if app.config['ADMIN_USERNAME'] and admin.username != app.config['ADMIN_USERNAME']:
                     row = db.session.query(_User).filter_by(admin=True, ldap=False).first()
-                    row.username = app.config['ADMIN_USERNAME'] or admin.username
+                    row.username = app.config['ADMIN_USERNAME']
                     db.session.commit()
         except OperationalError:
             pass  # tables don't exist yet (e.g. during flask db upgrade), skip init
