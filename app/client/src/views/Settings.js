@@ -1,4 +1,5 @@
-import React from 'react'
+import React, { useState, useEffect } from 'react';
+import axios from 'axios';
 import {
   Box,
   Button,
@@ -45,6 +46,8 @@ import GameSearch from '../components/game/GameSearch'
 import _ from 'lodash'
 import WarningService from '../services/WarningService'
 import adminSSE from '../services/AdminSSE'
+
+import PersonAddIcon from '@mui/icons-material/PersonAdd';
 
 const isValidDiscordWebhook = (url) => {
   const regex = /^https:\/\/discord\.com\/api\/webhooks\/\d{17,20}\/[\w-]{60,}$/
@@ -469,6 +472,41 @@ const Settings = () => {
     }
   }
 
+  const handleRegisterUser = async (e) => {
+    e.preventDefault();
+
+    // 1. Validar que las contraseñas coincidan
+    if (userFormData.password !== userFormData.confirmPassword) {
+      setAlert({ open: true, message: 'Las contraseñas no coinciden', type: 'error' });
+      return;
+    }
+
+    try {
+      const response = await axios.post('/api/signup', {
+        username: userFormData.username,
+        password: userFormData.password
+      });
+
+      if (response.status === 200) {
+        setAlert({ open: true, message: 'Usuario creado correctamente', type: 'success' });
+        // Limpiar el formulario tras el éxito
+        setUserFormData({ username: '', password: '', confirmPassword: '' });
+      }
+    } catch (err) {
+      setAlert({
+        open: true,
+        message: err.response?.data || 'Error al crear el usuario',
+        type: 'error'
+      });
+    }
+  };
+
+  const [userFormData, setUserFormData] = useState({
+    username: '',
+    password: '',
+    confirmPassword: ''
+  });
+
   return (
     <>
       <SnackbarAlert severity={alert.type} open={alert.open} setOpen={(open) => setAlert({ ...alert, open })}>
@@ -521,6 +559,7 @@ const Settings = () => {
             <Tab label="Transcoding" />
             <Tab label="Folders" />
             <Tab label="Actions" />
+            <Tab label="Registrar Usuario" />
           </Tabs>
         )}
 
@@ -1425,10 +1464,67 @@ const Settings = () => {
                 </Button>
               </Stack>
             )}
+
+            {/* Users Management - Tab 6 */}
+            {activeTab === 6 && (
+              <Box sx={{ maxWidth: 450, pt: 2 }}>
+                <Typography variant="h6" sx={{ mb: 3, color: 'white' }}>
+                  Crear Nuevo Usuario
+                </Typography>
+
+                <Stack spacing={3} component="form" onSubmit={handleRegisterUser}>
+                  <TextField
+                    label="Nombre de Usuario"
+                    variant="outlined"
+                    fullWidth
+                    required
+                    value={userFormData.username}
+                    onChange={(e) => setUserFormData({ ...userFormData, username: e.target.value })}
+                  />
+
+                  <TextField
+                    label="Contraseña"
+                    type="password"
+                    variant="outlined"
+                    fullWidth
+                    required
+                    value={userFormData.password}
+                    onChange={(e) => setUserFormData({ ...userFormData, password: e.target.value })}
+                  />
+
+                  <TextField
+                    label="Confirmar Contraseña"
+                    type="password"
+                    variant="outlined"
+                    fullWidth
+                    required
+                    value={userFormData.confirmPassword}
+                    onChange={(e) => setUserFormData({ ...userFormData, confirmPassword: e.target.value })}
+                    error={userFormData.confirmPassword !== '' && userFormData.password !== userFormData.confirmPassword}
+                    helperText={
+                      userFormData.confirmPassword !== '' &&
+                        userFormData.password !== userFormData.confirmPassword ? "Las contraseñas no coinciden" : ""
+                    }
+                  />
+
+                  <Button
+                    type="submit"
+                    variant="contained"
+                    color="primary"
+                    size="large"
+                    disabled={!userFormData.username || !userFormData.password}
+                    sx={{ mt: 2, fontWeight: 'bold' }}
+                  >
+                    Registrar Usuario
+                  </Button>
+                </Stack>
+              </Box>
+            )}
+
           </Box>
 
           {/* Save button pinned to bottom */}
-          {activeTab !== 4 && activeTab !== 5 && (
+          {activeTab !== 4 && activeTab !== 5 && activeTab !== 6 && (
             <Box sx={{ pt: 2, maxWidth: 500, flexShrink: 0 }}>
               <Divider sx={{ mb: 2 }} />
               <Button

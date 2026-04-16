@@ -42,12 +42,12 @@ const CompactVideoCard = ({
   const [privateView, setPrivateView] = React.useState(video.info?.private)
   const [title, setTitle] = React.useState(
     video.info?.title ||
-      (video.path
-        ? video.path
-            .split('/')
-            .pop()
-            .replace(/\.[^/.]+$/, '')
-        : 'Untitled'),
+    (video.path
+      ? video.path
+        .split('/')
+        .pop()
+        .replace(/\.[^/.]+$/, '')
+      : 'Untitled'),
   )
   const [description, setDescription] = React.useState(video.info?.description || '')
   const [menuAnchorEl, setMenuAnchorEl] = React.useState(null)
@@ -86,7 +86,7 @@ const CompactVideoCard = ({
             ? getVideoUrl(video.video_id, '1080p', video.extension)
             : getVideoUrl(video.video_id, 'original', video.extension)
       v.muted = true
-      v.play().catch(() => {})
+      v.play().catch(() => { })
     } else {
       v.pause()
       v.removeAttribute('src')
@@ -128,12 +128,12 @@ const CompactVideoCard = ({
     setIntVideo(video)
     setTitle(
       video.info?.title ||
-        (video.path
-          ? video.path
-              .split('/')
-              .pop()
-              .replace(/\.[^/.]+$/, '')
-          : 'Untitled'),
+      (video.path
+        ? video.path
+          .split('/')
+          .pop()
+          .replace(/\.[^/.]+$/, '')
+        : 'Untitled'),
     )
     setDescription(video.info?.description || '')
     setLocalTags(video.tags || [])
@@ -214,11 +214,11 @@ const CompactVideoCard = ({
                 .then((assets) => {
                   if (assets.data?.icon_url) setSuggestionIcon(assets.data.icon_url)
                 })
-                .catch(() => {})
+                .catch(() => { })
             }
           }
         })
-        .catch(() => {})
+        .catch(() => { })
     }
 
     const observer = new IntersectionObserver(
@@ -312,9 +312,9 @@ const CompactVideoCard = ({
 
   const filenameFallback = video.path
     ? video.path
-        .split('/')
-        .pop()
-        .replace(/\.[^/.]+$/, '')
+      .split('/')
+      .pop()
+      .replace(/\.[^/.]+$/, '')
     : 'Untitled'
 
   const refreshVideoDetails = async () => {
@@ -324,7 +324,7 @@ const CompactVideoCard = ({
       setPrivateView(refreshed.info?.private)
       setTitle(refreshed.info?.title || filenameFallback)
       setDescription(refreshed.info?.description || '')
-    } catch (_) {}
+    } catch (_) { }
   }
 
   const handleTranscode = async () => {
@@ -806,10 +806,10 @@ const CompactVideoCard = ({
                 onDoubleClick={
                   authenticated
                     ? (e) => {
-                        e.stopPropagation()
-                        setTitleDraft(title)
-                        setEditingTitle(true)
-                      }
+                      e.stopPropagation()
+                      setTitleDraft(title)
+                      setEditingTitle(true)
+                    }
                     : undefined
                 }
                 sx={{
@@ -833,6 +833,23 @@ const CompactVideoCard = ({
                 {title}
               </Typography>
             )}
+
+            {/* Username del autor con seguridad */}
+            <Typography
+              sx={{
+                fontSize: 13,
+                fontWeight: 400,
+                color: 'rgba(255, 255, 255, 0.7)',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+                mt: 0.5
+              }}
+            >
+              {/* Esta lógica busca el nombre sin romper el código si la variable no existe */}
+              {typeof video !== 'undefined' && video?.owner_name ? `Subido por: ${video.owner_name}` : 'Vexo'}
+              {typeof video !== 'undefined' && video?.username ? `Subido por: ${video.username}` : ''}
+            </Typography>
 
             {/* Game name + tag chips on same row */}
             {gameName && (
@@ -984,7 +1001,7 @@ const CompactVideoCard = ({
               </MenuItem>
             ))}
         </Menu>
-      </Box>
+      </Box >
     </>
   )
 }

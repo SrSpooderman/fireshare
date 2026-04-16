@@ -13,7 +13,11 @@ if [ ! -d "venv" ]; then
   python3 -m venv venv
 fi
 
-source venv/bin/activate
+if [ -f "venv/Scripts/activate" ]; then
+  source venv/Scripts/activate
+else
+  source venv/bin/activate
+fi
 
 # Export environment variables
 source .env.dev
