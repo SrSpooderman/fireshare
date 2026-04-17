@@ -5,6 +5,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from .models import User
 from . import db
 from .api.misc import _get_local_version, _fetch_release_notes
+from .api.decorators import demo_restrict
 from datetime import datetime, timezone
 try:
     import ldap
@@ -104,6 +105,7 @@ def login():
 
 @auth.route('/api/signup', methods=['POST'])
 @login_required
+@demo_restrict
 def signup():
     if not current_user.admin:
         return Response(response="Unauthorized", status=403)
@@ -127,37 +129,32 @@ def loggedin():
     if not current_user.is_authenticated:
         return jsonify({'authenticated': False})
 
-    # Check if a newer release exists and user hasn't dismissed it yet
-    show_release_notes = False
-    release_notes = None
     release_data = _fetch_release_notes()
     local_version = _get_local_version()
 
+    latest_release = None
     if release_data and local_version:
         latest_version = release_data['version']
         update_available = tuple(int(x) for x in latest_version.split('.')) > tuple(int(x) for x in local_version.split('.'))
         if update_available:
             current_app.logger.info(f"A new version of Fireshare is available! You have v{local_version}, latest is v{latest_version}.")
+            is_dev = current_app.config.get('ENVIRONMENT') == 'dev'
+            release_is_old_enough = is_dev
+            if not is_dev:
+                try:
+                    published_dt = datetime.fromisoformat(release_data.get('published_at', '').replace('Z', '+00:00'))
+                    release_is_old_enough = (datetime.now(timezone.utc) - published_dt).total_seconds() >= 86400
+                except (ValueError, TypeError):
+                    pass
+            if release_is_old_enough:
+                latest_release = release_data
         else:
             current_app.logger.info(f"Fireshare is up to date (v{local_version}).")
-        published_at = release_data.get('published_at', '')
-        release_is_old_enough = False
-        if published_at:
-            try:
-                published_dt = datetime.fromisoformat(published_at.replace('Z', '+00:00'))
-                release_age = datetime.now(timezone.utc) - published_dt
-                release_is_old_enough = release_age.total_seconds() >= 86400
-            except (ValueError, TypeError):
-                release_is_old_enough = True
-        if update_available and release_is_old_enough and current_user.last_seen_version != latest_version:
-            show_release_notes = True
-            release_notes = release_data
 
     return jsonify({
         'authenticated': True,
         'admin': current_user.admin,
-        'show_release_notes': show_release_notes,
-        'release_notes': release_notes
+        'latest_release': latest_release,
     })
 
 @auth.route('/api/logout', methods=['POST'])
